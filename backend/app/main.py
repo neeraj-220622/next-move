@@ -32,6 +32,8 @@ from app.api.v1.competitors import router as competitors_router
 from app.api.v1.predictions import router as predictions_router
 from app.api.v1.evidence import router as evidence_router
 from app.api.v1.behaviour import router as behaviour_router
+from app.api.v1.outcomes import router as outcomes_router
+from app.api.v1.timemachine import router as timemachine_router
 from app.core.config import get_settings
 from app.schemas.common import ErrorDetail
 
@@ -121,6 +123,8 @@ app.include_router(competitors_router, prefix="/api/v1/competitors", tags=["Comp
 app.include_router(predictions_router, prefix="/api/v1/predict", tags=["Predictions"])
 app.include_router(evidence_router, prefix="/api/v1/evidence", tags=["Evidence"])
 app.include_router(behaviour_router, prefix="/api/v1/behaviour", tags=["Behaviour"])
+app.include_router(outcomes_router, prefix="/api/v1/outcomes", tags=["Outcomes"])
+app.include_router(timemachine_router, prefix="/api/v1/timemachine", tags=["Strategic Time Machine"])
 
 # ── Global exception handlers ─────────────────────────────────────────────────
 

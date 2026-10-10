@@ -33,11 +33,14 @@ class InMemoryRepository(Generic[T]):
         """Used to isolate tests"""
         self._store.clear()
 
-# Global instances for development stub
 from app.schemas.competitor import CompetitorResponse
 from app.schemas.prediction import PredictionResponse
 from app.schemas.evidence import EvidenceResponse
+from app.schemas.outcome import PredictionOutcomeResponse
+from app.schemas.timemachine import TimeMachineReplayResponse
 
 competitor_repo: InMemoryRepository[CompetitorResponse] = InMemoryRepository()
 prediction_repo: InMemoryRepository[PredictionResponse] = InMemoryRepository()
 evidence_repo: InMemoryRepository[EvidenceResponse] = InMemoryRepository()
+outcome_repo: InMemoryRepository[PredictionOutcomeResponse] = InMemoryRepository()
+timemachine_repo: InMemoryRepository[TimeMachineReplayResponse] = InMemoryRepository()
