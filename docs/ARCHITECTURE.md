@@ -112,6 +112,8 @@ Input: competitor signal / analysis request
   │  Store prediction + outcome for      │
   │  future Prediction Autopsy           │
   └──────────────────────────────────────┘
+
+*(The RECALL → ANALYZE → PREDICT → EXPLAIN → RETAIN orchestration has been successfully integrated via `WorkflowCoordinator` in Phase 4. Live modeling features using Hindsight and Qwen will activate in Phase 5).*
 ```
 
 ---
@@ -135,9 +137,34 @@ Input: competitor signal / analysis request
 
 ---
 
-## 7. Implementation Status
+## 7. Data Architecture and Contracts (Phase 3)
 
-### ✅ Implemented (Phase 1)
+### Schema Ownership
+The **FastAPI backend** is the absolute source of truth for data schemas. Pydantic models (`backend/app/schemas/`) define constraints, serialization formats, and required fields. The frontend mirrors these schemas via TypeScript definitions (`frontend/src/types/`). No business logic or type definitions should be invented natively on the frontend without matching the backend contract.
+
+### Repository Abstractions
+To decouple HTTP routes from database/storage mechanisms, NextMove uses the Repository pattern (`backend/app/db/repository.py`).
+- **Development Stubs:** In Phase 3, an `InMemoryRepository` provides a working API for the UI to query and update. Data is lost on server restart.
+- **Future Persistence:** This abstraction ensures that integrating MongoDB, PostgreSQL, or a live Hindsight server later will only require swapping the repository implementation, without altering route handlers or API contracts.
+
+### API Contracts vs. Implemented Logic
+Endpoints such as `POST /api/v1/predict` are currently **API Contracts**. They strictly validate requests and correctly serialize responses, but the underlying business logic (e.g. running an ML forecast model) is bypassed. Instead, the endpoint explicitly returns a `status="unavailable"` and `probability=null` to honor the data contract honestly until the Phase 4 Agent/Orchestration layer connects them to the Forecasting Service.
+
+### Hindsight Adapter
+The `MemoryReference` schema is an application-level abstraction. A future adapter will translate these NextMove memory schemas into the SDK structures required by the physical Hindsight server. This isolates NextMove's domain logic from the external dependency.
+
+### Temporal Vocabulary
+To prevent data leakage during forecasting, time is modeled distinctly:
+- **Event/Observation Time:** When an event occurred in the real world.
+- **Publication Time:** When evidence about the event was published.
+- **Ingestion Time:** When the NextMove system recorded the evidence.
+- **Forecast Cutoff:** The "Time Machine" boundary. Predictions must only use evidence where `observation/publication time <= cutoff_date`.
+
+---
+
+## 8. Implementation Status
+
+### ✅ Implemented (Phases 1-3)
 
 | Component | Status |
 |---|---|
@@ -160,12 +187,11 @@ Input: competitor signal / analysis request
 
 | Component | Target Phase |
 |---|---|
-| Agent / orchestration layer | Phase 4 |
 | `HindsightService.store_evidence` | Phase 5 |
 | `HindsightService.recall_relevant` | Phase 5 |
 | `HindsightService.retain_outcome` | Phase 5 |
 | `LLMService.generate_explanation` | Phase 5 |
-| `ForecastingService.predict_competitor_action` | Phase 4/5 |
+| `ForecastingService.predict_competitor_action` | Phase 5 |
 | Feature UI screens (DNA, Time Machine, Autopsy) | Phase 2/3 |
 | Authentication | Phase 6 |
 | Production deployment | Phase 7 |

@@ -1,15 +1,12 @@
 """
 Shared Pydantic schemas used across API responses.
-
-These types are intentionally kept minimal for Phase 1.  Feature-specific
-schemas will be added in subsequent phases alongside their endpoints.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +21,7 @@ class ServiceStatus(str, Enum):
     UNAVAILABLE = "unavailable"
     UNKNOWN = "unknown"
     DISABLED = "disabled"
+    DEGRADED = "degraded"
 
 
 class DependencyInfo(BaseModel):
@@ -32,7 +30,7 @@ class DependencyInfo(BaseModel):
     name: str
     status: ServiceStatus
     message: str = ""
-    latency_ms: float | None = None
+    latency_ms: Optional[float] = None
 
 
 # ── Standard API response wrappers ────────────────────────────────────────────

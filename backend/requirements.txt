@@ -5,10 +5,10 @@ pydantic-settings==2.6.1
 python-dotenv==1.0.1
 httpx==0.28.0
 structlog==24.4.0
-
+groq==1.7.0
 # Optional — forecasting (install only when needed in Phase 5+)
 # scikit-learn==1.5.2
 # xgboost==2.1.3
 
 # Hindsight memory client
-# hindsight-client==<version>   # uncomment when package is available on PyPI
+hindsight-client==0.10.3

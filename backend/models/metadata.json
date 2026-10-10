@@ -1,0 +1,15 @@
+{
+  "features": [
+    "evidence_count",
+    "horizon_days",
+    "cluster_marketing_blitz",
+    "cluster_price_cut",
+    "cluster_product_launch"
+  ],
+  "version": "1.0.0",
+  "metrics": {
+    "brier_score": 0.1974823539486164,
+    "roc_auc": 0.7392692307692308,
+    "accuracy": 0.6936936936936937
+  }
+}

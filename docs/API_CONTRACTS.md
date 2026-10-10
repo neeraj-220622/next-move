@@ -1,6 +1,6 @@
 # NextMove — API Contracts
 
-## Phase 1: Implemented Endpoints
+## Phase 1 & 2: Health & Status
 
 All endpoints return JSON. Error responses follow the `ErrorDetail` schema.
 
@@ -20,13 +20,6 @@ Does **not** check external dependencies.
 }
 ```
 
-**Schema:** `HealthResponse`
-| Field | Type | Notes |
-|---|---|---|
-| `status` | `string` | Always `"ok"` if the server is up |
-| `app_name` | `string` | From `APP_NAME` env var |
-| `timestamp` | `datetime` | UTC ISO-8601 |
-
 ---
 
 ### `GET /api/v1/status`
@@ -45,53 +38,100 @@ Does **not** check external dependencies.
     {
       "name": "hindsight",
       "status": "unavailable",
-      "message": "Connection refused — is Hindsight running at http://localhost:8888?",
-      "latency_ms": null
-    },
-    {
-      "name": "llm",
-      "status": "unavailable",
-      "message": "Connection refused — is the local LLM server running at http://localhost:11434/v1?",
-      "latency_ms": null
-    },
-    {
-      "name": "forecasting",
-      "status": "ok",
-      "message": "Baseline (heuristic) forecasting — no ML dependencies required.",
+      "message": "Connection refused",
       "latency_ms": null
     }
   ]
 }
 ```
 
-**Overall `status` values:**
-| Value | Meaning |
-|---|---|
-| `"ok"` | All dependencies healthy |
-| `"degraded"` | One or more optional deps unavailable/disabled |
-| `"error"` | One or more deps in unknown/error state |
+---
 
-**`ServiceStatus` values for individual dependencies:**
-| Value | Meaning |
-|---|---|
-| `"ok"` | Dependency is reachable and responding |
-| `"unavailable"` | Connection refused or timed out |
-| `"unknown"` | Unexpected error during probe |
-| `"disabled"` | Explicitly disabled in configuration |
+## Phase 3: Core Business Entities (Development Stubs)
+
+The following endpoints are functional using an **in-memory repository**. Data is wiped on server restart.
+
+### `GET /api/v1/competitors/`
+List registered competitors.
+
+**Response `200 OK`:** Array of `CompetitorResponse` objects.
+
+### `POST /api/v1/competitors/`
+Register a competitor profile.
+
+**Request Body (`CompetitorCreate`):**
+```json
+{
+  "name": "Amazon",
+  "website": "https://amazon.com",
+  "description": "Retail giant",
+  "tracked_clusters": ["Logistics, Fulfillment & Expansion"]
+}
+```
+
+**Response `201 Created`:** `CompetitorResponse` object with generated `competitor_id` and timestamps. Returns `409 Conflict` if the name exists.
+
+### `GET /api/v1/competitors/{competitor_id}`
+Retrieve a competitor by stable UUID. Returns `404` if not found.
 
 ---
 
-### `GET /docs`
+### `POST /api/v1/predict/`
+Submit a prediction request. Currently returns an explicit **unavailable** state since no forecasting models are integrated yet.
 
-FastAPI Swagger UI — auto-generated from OpenAPI schema.
+**Request Body (`PredictionRequest`):**
+```json
+{
+  "competitor_id": "uuid",
+  "cluster": "Pricing, Promotions & Retail Media",
+  "cutoff_date": "2026-01-01T00:00:00Z",
+  "horizon_days": 30,
+  "evidence_ids": [],
+  "metadata": {}
+}
+```
 
-### `GET /redoc`
+**Response `201 Created`:**
+```json
+{
+  "prediction_id": "uuid",
+  "competitor_id": "uuid",
+  "cluster": "Pricing, Promotions & Retail Media",
+  "cutoff_date": "2026-01-01T00:00:00Z",
+  "horizon_days": 30,
+  "probability": null,
+  "model_version": null,
+  "evidence_ids": [],
+  "created_at": "2026-01-01T00:00:00Z",
+  "status": "unavailable"
+}
+```
 
-ReDoc documentation UI.
+### `GET /api/v1/predict/{prediction_id}`
+Retrieve a saved prediction. Returns `404` if not found.
 
-### `GET /openapi.json`
+---
 
-Raw OpenAPI 3.x schema.
+### `POST /api/v1/evidence/`
+Register an evidence record with provenance and timestamp validation.
+
+**Request Body (`EvidenceCreate`):**
+```json
+{
+  "competitor_id": "uuid",
+  "cluster": "Marketplace & Seller Operations",
+  "description": "Seller fee changes announced",
+  "source_url": "https://news.example.com/...",
+  "observation_time": "2026-01-01T00:00:00Z",
+  "provenance": "unverified",
+  "confidence": null
+}
+```
+
+**Response `201 Created`:** `EvidenceResponse` object. Returns `404` if the `competitor_id` is unknown.
+
+### `GET /api/v1/evidence/`
+List all registered evidence.
 
 ---
 
@@ -107,37 +147,8 @@ All endpoints use this schema for errors (HTTP 4xx/5xx):
 }
 ```
 
-| Field | Type | Notes |
-|---|---|---|
-| `error` | `string` | Machine-readable error code |
-| `detail` | `any` | Human-readable detail or validation errors |
-| `timestamp` | `datetime` | UTC ISO-8601 |
+## Phase 4–7: Planned Endpoints (Not Yet Implemented)
 
----
-
-## Phase 2–7: Planned Endpoints (Not Yet Implemented)
-
-These are interface proposals only. Schemas and behaviour will be finalised during implementation.
-
-### `POST /api/v1/competitors` *(Phase 2)*
-Register a competitor profile.
-
-### `POST /api/v1/signals` *(Phase 3)*
-Submit a competitor signal for analysis.
-
-### `GET /api/v1/analysis/{competitor_id}` *(Phase 3)*
-Retrieve behavioural DNA analysis for a competitor.
-
-### `POST /api/v1/predict` *(Phase 4)*
-Trigger a prediction run (RECALL → ANALYZE → PREDICT/EXPLAIN → RETAIN).
-
-### `GET /api/v1/predictions` *(Phase 4)*
-List past predictions and their current status.
-
-### `GET /api/v1/autopsy/{prediction_id}` *(Phase 5)*
-Retrieve a Prediction Autopsy report comparing prediction vs. outcome.
-
-### `GET /api/v1/time-machine` *(Phase 3)*
-Query historical signal windows for Strategic Time Machine analysis.
-
-> **Note:** These endpoints are listed for planning purposes only. Do not build against them until they are marked **Implemented** in this document.
+- **Prediction Analysis Pipeline:** Connecting the `/api/v1/predict/` endpoint to the forecasting service.
+- **Hindsight Integration:** Endpoints to store and retrieve memory objects (`MemoryReference`) backed by the Hindsight server.
+- **Prediction Autopsy (`GET /api/v1/autopsy/{prediction_id}`):** Retrieve a Prediction Autopsy report comparing prediction vs. outcome.

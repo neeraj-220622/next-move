@@ -1,4 +1,9 @@
-/** API response types — kept in sync with backend/app/schemas/common.py */
+/**
+ * API response types — single source of truth.
+ * Kept in sync with backend/app/schemas/common.py
+ */
+
+// ── Dependency / service status ─────────────────────────────────────────────
 
 export type ServiceStatus = 'ok' | 'unavailable' | 'unknown' | 'disabled'
 
@@ -9,6 +14,8 @@ export interface DependencyInfo {
   latency_ms: number | null
 }
 
+// ── Backend response schemas ─────────────────────────────────────────────────
+
 export interface HealthResponse {
   status: string
   app_name: string
@@ -16,7 +23,7 @@ export interface HealthResponse {
 }
 
 export interface StatusResponse {
-  status: string
+  status: string          // 'ok' | 'degraded' | 'error'
   app_name: string
   app_env: string
   version: string
@@ -24,7 +31,22 @@ export interface StatusResponse {
   dependencies: DependencyInfo[]
 }
 
-export type ConnectionState = 'connecting' | 'connected' | 'error'
+// ── UI-level connection state ────────────────────────────────────────────────
+
+/**
+ * Five connection states the UI must distinguish:
+ *  connecting   – first request in flight
+ *  connected    – backend healthy (all deps ok)
+ *  degraded     – backend responds but ≥1 optional dep unavailable/disabled
+ *  disconnected – network or fetch error (backend not reachable)
+ *  error        – unexpected response (non-2xx, malformed JSON, etc.)
+ */
+export type ConnectionState =
+  | 'connecting'
+  | 'connected'
+  | 'degraded'
+  | 'disconnected'
+  | 'error'
 
 export interface BackendStatus {
   connectionState: ConnectionState

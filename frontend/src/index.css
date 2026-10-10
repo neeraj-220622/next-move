@@ -9,12 +9,11 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color-scheme: dark;
 }
 
 body {
   margin: 0;
-  background: #0a0a0f;
+  background: #f8fafc; /* slate-50 */
 }
 
 #root {

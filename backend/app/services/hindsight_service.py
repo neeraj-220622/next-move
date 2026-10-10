@@ -19,8 +19,12 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+import asyncio
+from datetime import datetime
+import uuid
 
 import httpx
+from hindsight_client import Hindsight
 
 from app.core.config import Settings, get_settings
 from app.schemas.common import DependencyInfo, ServiceStatus
@@ -48,6 +52,20 @@ class HindsightService:
         self._settings = settings or get_settings()
         self._base_url = self._settings.hindsight_base_url
         self._timeout = self._settings.hindsight_timeout
+        self.client = Hindsight(base_url=self._base_url, timeout=self._timeout)
+        self.bank_id = "nextmove"
+
+    async def _ensure_bank_exists(self) -> None:
+        try:
+            from hindsight_client_api.models.create_bank_request import CreateBankRequest
+            req = CreateBankRequest(name="NextMove Memory", retain_extraction_mode="none")
+            await self.client.banks.create_or_update_bank(
+                bank_id=self.bank_id,
+                create_bank_request=req,
+            )
+        except Exception as e:
+            logger.error("Failed to ensure bank exists: %s", e)
+            raise RuntimeError(f"Hindsight server error: {e}")
 
     # ── Connectivity check ────────────────────────────────────────────────────
 
@@ -100,44 +118,113 @@ class HindsightService:
                 message=f"Unexpected error: {exc}",
             )
 
-    # ── Phase 5 stubs ────────────────────────────────────────────────────────
-    # These signatures define the interface for the ML/memory developer.
-    # Implementations will be added in Phase 5.
-
     async def store_evidence(self, evidence: dict[str, Any]) -> None:
         """
-        [Phase 5] Persist a competitor signal as a Hindsight memory.
-
-        Parameters
-        ----------
-        evidence:
-            Structured competitor signal data to store.
+        [Phase 5A] Persist a competitor signal as a Hindsight memory.
         """
-        raise NotImplementedError("store_evidence is planned for Phase 5.")
+        try:
+            await self._ensure_bank_exists()
+            
+            obs_time = evidence.get("observation_time")
+            ts = None
+            if isinstance(obs_time, str):
+                try:
+                    ts = datetime.fromisoformat(obs_time.replace("Z", "+00:00"))
+                except ValueError:
+                    pass
+            elif isinstance(obs_time, datetime):
+                ts = obs_time
+                
+            resp = await self.client.aretain(
+                bank_id=self.bank_id,
+                content=evidence.get("description", ""),
+                metadata={
+                    "evidence_id": str(evidence.get("evidence_id")),
+                    "competitor_id": str(evidence.get("competitor_id")),
+                    "cluster": str(evidence.get("cluster")),
+                    "provenance": str(evidence.get("provenance", "unknown")),
+                    "observation_time": str(obs_time) if obs_time else "",
+                    "ingestion_time": str(evidence.get("ingestion_time", "")),
+                    "type": "evidence"
+                },
+                timestamp=ts
+            )
+            if not resp.success:
+                raise RuntimeError(f"Hindsight SDK returned success=False. items_count={resp.items_count}")
+        except Exception as e:
+            logger.error(f"Hindsight store_evidence failed: {e}")
+            raise RuntimeError(f"Hindsight retention failed: {e}")
 
     async def recall_relevant(
         self, context: str, top_k: int = 5
     ) -> list[dict[str, Any]]:
         """
-        [Phase 5] Retrieve memories relevant to the given context string.
-
-        Parameters
-        ----------
-        context:
-            Natural-language description of the current analysis context.
-        top_k:
-            Maximum number of memories to return.
+        [Phase 5A] Retrieve memories relevant to the given context string.
         """
-        raise NotImplementedError("recall_relevant is planned for Phase 5.")
+        try:
+            await self._ensure_bank_exists()
+            
+            response = await self.client.arecall(
+                bank_id=self.bank_id,
+                query=context,
+                max_source_facts_tokens=4096
+            )
+            
+            results = []
+            for r in response.results:
+                if len(results) >= top_k:
+                    break
+                    
+                md = r.metadata or {}
+                obs_time = r.occurred_start or md.get("observation_time")
+                
+                if not obs_time:
+                    logger.warning(f"Excluding memory {r.id} due to insufficient timestamp metadata")
+                    continue
+                    
+                if isinstance(obs_time, datetime):
+                    obs_time_str = obs_time.isoformat()
+                else:
+                    obs_time_str = str(obs_time)
+                    
+                results.append({
+                    "evidence_id": md.get("evidence_id") or str(uuid.uuid4()),
+                    "competitor_id": md.get("competitor_id") or str(uuid.uuid4()),
+                    "cluster": md.get("cluster") or "unknown",
+                    "description": r.text,
+                    "observation_time": obs_time_str,
+                    "provenance": md.get("provenance") or "synthetic",
+                    "ingestion_time": md.get("ingestion_time") or datetime.now().isoformat(),
+                    "validation_status": "validated"
+                })
+            return results
+        except Exception as e:
+            logger.error(f"Hindsight recall_relevant failed: {e}")
+            raise RuntimeError(f"Hindsight recall failed: {e}")
 
     async def retain_outcome(self, outcome: dict[str, Any]) -> None:
         """
-        [Phase 5] Store a prediction outcome for future learning.
-
-        Parameters
-        ----------
-        outcome:
-            Structured prediction outcome data, including the original
-            prediction and the observed real-world result.
+        [Phase 5A] Store a prediction outcome for future learning.
         """
-        raise NotImplementedError("retain_outcome is planned for Phase 5.")
+        try:
+            await self._ensure_bank_exists()
+            
+            content = f"Prediction: {outcome.get('probability', 'unknown')} | Status: {outcome.get('status')}"
+            if outcome.get("explanation"):
+                content += f" | Explanation: {outcome['explanation']}"
+                
+            resp = await self.client.aretain(
+                bank_id=self.bank_id,
+                content=content,
+                metadata={
+                    "prediction_id": str(outcome.get("prediction_id")),
+                    "competitor_id": str(outcome.get("competitor_id")),
+                    "cluster": str(outcome.get("cluster")),
+                    "type": "prediction_outcome"
+                }
+            )
+            if not resp.success:
+                raise RuntimeError("Hindsight SDK returned success=False for retain_outcome")
+        except Exception as e:
+            logger.error(f"Hindsight retain_outcome failed: {e}")
+            raise RuntimeError(f"Hindsight retention failed: {e}")
