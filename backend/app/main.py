@@ -31,6 +31,7 @@ from app.api.health import router as health_router
 from app.api.v1.competitors import router as competitors_router
 from app.api.v1.predictions import router as predictions_router
 from app.api.v1.evidence import router as evidence_router
+from app.api.v1.behaviour import router as behaviour_router
 from app.core.config import get_settings
 from app.schemas.common import ErrorDetail
 
@@ -119,6 +120,7 @@ app.include_router(health_router)
 app.include_router(competitors_router, prefix="/api/v1/competitors", tags=["Competitors"])
 app.include_router(predictions_router, prefix="/api/v1/predict", tags=["Predictions"])
 app.include_router(evidence_router, prefix="/api/v1/evidence", tags=["Evidence"])
+app.include_router(behaviour_router, prefix="/api/v1/behaviour", tags=["Behaviour"])
 
 # ── Global exception handlers ─────────────────────────────────────────────────
 

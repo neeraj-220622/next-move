@@ -7,11 +7,11 @@ import httpx
 @pytest.fixture
 def mock_settings():
     return Settings(
-        llm_provider="openai-compatible",
-        llm_base_url="https://api.groq.com/openai/v1",
-        llm_model="openai/gpt-oss-120b",
-        llm_api_key="fake-key",
-        llm_timeout=1
+        LLM_PROVIDER="openai-compatible",
+        LLM_BASE_URL="https://api.groq.com/openai/v1",
+        LLM_MODEL="openai/gpt-oss-120b",
+        LLM_API_KEY="fake-key",
+        LLM_TIMEOUT=1
     )
 
 @pytest.fixture
